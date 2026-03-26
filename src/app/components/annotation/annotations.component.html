@@ -5,6 +5,4 @@
   <button [disabled]="currentArticle.annotations.length == 0" (click)="clearAnnotations()">Очистить аннотации</button>
 </div>
 
-<div #content class="content" (mouseup)="onSelect()">
-  <p>{{currentArticle.content}}</p>
-</div>
+<div #content class="content" (mouseup)="onSelect()"></div>
