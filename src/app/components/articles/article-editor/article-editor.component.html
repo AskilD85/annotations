@@ -1,0 +1,19 @@
+<div class="container">
+  <app-notification [notificationText]="notificationText" [type]="NOTIFICATION_TYPE.ERROR"></app-notification>
+  <div class="toolbar">
+    <button class="secondary" routerLink="/">В список статей</button>
+    <button class="primary" (click)="save()">Сохранить</button>
+    <button class="primary" [routerLink]="['/view', article.id ]">Отмена</button>
+  </div>
+
+  <input [(ngModel)]="article.title" placeholder="Название статьи" />
+
+  <textarea
+    [(ngModel)]="article.content"
+    rows="10"
+    placeholder="Введите текст статьи...">
+  </textarea>
+
+  <app-notification [notificationText]="'После сохранения вы сможете выделять текст и добавлять аннотации'" [type]="NOTIFICATION_TYPE.WARNING"></app-notification>
+
+</div>

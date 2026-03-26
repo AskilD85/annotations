@@ -1,0 +1,25 @@
+
+.container {
+  max-width: 800px;
+  margin: 20px auto;
+}
+
+.actions button {
+  margin-right: 9px;
+}
+
+button {
+  margin-right: 5px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.toolbar {
+  margin-bottom: 10px;
+}
+
+.notification-container {
+  margin: 5px auto;
+  max-width: 800px;
+  height: 14px;
+}

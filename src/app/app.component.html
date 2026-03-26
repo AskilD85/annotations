@@ -1,0 +1,4 @@
+<div class="notification-container">
+  <app-notification [notificationText]="notificationService.text$ | async" [type]="'success'"></app-notification>
+</div>
+<router-outlet></router-outlet>
