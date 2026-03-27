@@ -54,11 +54,10 @@ export class ArticleEditorComponent implements OnInit {
       this.notificationText = 'ID документа не найден, будет создана новая статья с новым ID!'
     }
   }
-
-
 }
 
   save() {
+    this.article.annotations.length = 0;
     this.existArticle ? this.articleService.updateArticle(this.article) : this.articleService.create(this.article);
     this.router.navigate(['/view', this.article.id])
   }
