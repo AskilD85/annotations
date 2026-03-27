@@ -1,9 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, effect, inject, OnInit, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { AnnotationComponent, NotificationComponent } from '@/components';
 import { Article } from '@/models';
 import { ArticleService } from '@/services';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NOTIFICATION_TYPE } from '@/shared';
 
 
 @Component({
@@ -13,28 +15,33 @@ import { ArticleService } from '@/services';
   standalone: true,
   imports: [CommonModule, AnnotationComponent, RouterLink, NotificationComponent]
 })
-export class ArticleViewerComponent implements OnInit {
+export class ArticleViewerComponent {
 
   article!: Article;
   notificationText = 'Для добавления аннотациий нужно выделить текст!'
 
-  constructor(
-    private route: ActivatedRoute,
-    private router: Router,
-    private articleService: ArticleService,
-  ) {}
+  private articleService  = inject(ArticleService);
+  private route           = inject(ActivatedRoute);
+  private router          = inject(Router);
+
+  NOTIFICATION_TYPE = NOTIFICATION_TYPE
+
+  sArticle = this.articleService.selectedArticle;
+
+  id = toSignal(this.route.paramMap);
 
 
-  ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id');
-    const article = id ? this.articleService.getById(id) : null;
+  constructor() {
+    effect(() => {
+      const id = this.id()!.get('id')
+      if (id) {
+        this.articleService.selectArticle(id);
+      }
+      if (!this.sArticle()) {
+        this.router.navigate(['/']);
+      }
 
-    if (!article) {
-      this.router.navigate(['/'])
-      throw new Error('Article not found');
-    }
-
-    this.article = { ...article };
+    }, { allowSignalWrites: true });
   }
 
 }
