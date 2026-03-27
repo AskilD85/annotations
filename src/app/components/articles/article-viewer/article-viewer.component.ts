@@ -44,4 +44,10 @@ export class ArticleViewerComponent {
     }, { allowSignalWrites: true });
   }
 
+  deleteArticle() {
+    if (confirm('Удалить статью?')) {
+      this.articleService.delete(this.sArticle()!.id);
+    }
+  }
+
 }
