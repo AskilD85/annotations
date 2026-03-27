@@ -1,8 +1,10 @@
 <div class="toolbar">
-  <button [disabled]="!isSelectedText" (click)="applyAnnotation('yellow')">Жёлтый</button>
-  <button [disabled]="!isSelectedText" (click)="applyAnnotation('lightgreen')">Зелёный</button>
-  <button [disabled]="!isSelectedText" (click)="applyAnnotation('lightblue')">Синий</button>
+  <button [disabled]="!isSelectedText()" (click)="applyAnnotation('yellow')">Жёлтый</button>
+  <button [disabled]="!isSelectedText()" (click)="applyAnnotation('lightgreen')">Зелёный</button>
+  <button [disabled]="!isSelectedText()" (click)="applyAnnotation('lightblue')">Синий</button>
   <button [disabled]="!sAnnotation()" (click)="clearAnnotations()">Очистить аннотации</button>
 </div>
 
-<div #content class="content" (mouseup)="onSelect()"></div>
+<div #content class="content" id="container"></div>
+
+isSelectedText {{isSelectedText()}}

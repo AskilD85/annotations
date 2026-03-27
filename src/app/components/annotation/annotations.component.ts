@@ -1,7 +1,7 @@
 import { Article } from '@/models';
 import { AnnotationService, ArticleService } from '@/services';
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, ViewChild, inject, effect } from '@angular/core';
+import { Component, ElementRef, ViewChild, inject, effect, signal, computed } from '@angular/core';
 
 @Component({
   selector: 'app-annotation',
@@ -18,7 +18,8 @@ export class AnnotationComponent {
   articleService    = inject(ArticleService);
 
   sArticle = this.articleService.selectedArticle;
-  isSelectedText = false;
+  _isSelectedText = signal<boolean>(false);
+  isSelectedText = computed(() => this._isSelectedText());
 
   sAnnotation = this.annotationService.getAnnotationByArticleId;
   sArticles = this.articleService.articles;
@@ -27,11 +28,17 @@ export class AnnotationComponent {
     effect(() => {
       this.contentRef.nativeElement.innerHTML =  this.sAnnotation()?.length ? this.sAnnotation() : this.sArticle()?.content;
     });
+    document.addEventListener('selectionchange', () => {
+      this._isSelectedText.set(this.checkSelectedText());
+     });
   }
 
-  onSelect() {
-    const text = window.getSelection()?.toString();
-    this.isSelectedText = !!text;
+  checkSelectedText(): boolean {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return false;
+    const range = selection.getRangeAt(0);
+    const container = document.getElementById('container');
+    return Boolean(container?.contains(range.startContainer) && container?.contains(range.endContainer));
   }
 
   applyAnnotation(color: string): void {
@@ -83,7 +90,7 @@ export class AnnotationComponent {
 
   saveArticles(articles?: any): void {
     this.articleService.setArticles(articles);
-    this.isSelectedText = false;
+    this._isSelectedText.set(false);
   }
 
   clearAnnotations(): void {
