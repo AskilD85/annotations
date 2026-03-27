@@ -1,12 +1,8 @@
-import { Component, OnInit } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
-import { Article } from '@/models';
 import { ArticleService } from '@/services/article.service';
-import { NotificationComponent } from '@/components/notification';
 import { NotificationService } from './../../../services/notification.service';
-
 
 @Component({
   selector: 'app-article-list',
@@ -15,23 +11,15 @@ import { NotificationService } from './../../../services/notification.service';
   standalone: true,
   imports: [
   CommonModule,
-    NotificationComponent
   ],
 })
-export class ArticleListComponent implements OnInit {
+export class ArticleListComponent {
 
-  articles$!: Observable<Article[]>;
-  notificationText = ''
+  articleService      = inject(ArticleService)
+  router              = inject(Router)
+  notificationService = inject(NotificationService)
 
-  constructor(
-    private articleService: ArticleService,
-    private router: Router,
-    protected notificationService: NotificationService,
-  ) {}
-
-  ngOnInit(): void {
-    this.articles$ = this.articleService.getAll();
-  }
+  sArticles = this.articleService.articles;
 
   createArticle() {
     this.router.navigate(['/edit', 'new']);
