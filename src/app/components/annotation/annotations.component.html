@@ -2,7 +2,7 @@
   <button [disabled]="!isSelectedText" (click)="applyAnnotation('yellow')">Жёлтый</button>
   <button [disabled]="!isSelectedText" (click)="applyAnnotation('lightgreen')">Зелёный</button>
   <button [disabled]="!isSelectedText" (click)="applyAnnotation('lightblue')">Синий</button>
-  <button [disabled]="currentArticle.annotations.length == 0" (click)="clearAnnotations()">Очистить аннотации</button>
+  <button [disabled]="sAnnotation()?.length == 0" (click)="clearAnnotations()">Очистить аннотации</button>
 </div>
 
 <div #content class="content" (mouseup)="onSelect()"></div>

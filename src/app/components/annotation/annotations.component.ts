@@ -1,24 +1,32 @@
 import { Article } from '@/models';
-import { AnnotationService } from '@/services';
-import { Component, ElementRef, ViewChild, Input, OnInit, inject } from '@angular/core';
+import { AnnotationService, ArticleService } from '@/services';
+import { CommonModule } from '@angular/common';
+import { Component, ElementRef, ViewChild, inject, effect } from '@angular/core';
 
 @Component({
   selector: 'app-annotation',
   templateUrl: './annotations.component.html',
   styleUrls: ['./annotations.component.scss'],
+  imports: [CommonModule],
   standalone: true,
 })
-export class AnnotationComponent implements OnInit {
+export class AnnotationComponent {
 
   @ViewChild('content', { static: true }) contentRef!: ElementRef;
-  @Input() currentArticle!: Article;
 
   annotationService = inject(AnnotationService) ;
+  articleService    = inject(ArticleService);
+
+  sArticle = this.articleService.selectedArticle;
   isSelectedText = false;
 
-  ngOnInit() {
-    this.loadAnnotations();
-    this.setCurrentArticle();
+  sAnnotation = this.annotationService.getAnnotationByArticleId;
+  sArticles = this.articleService.articles;
+
+  constructor() {
+    effect(() => {
+      this.contentRef.nativeElement.innerHTML =  this.sAnnotation()?.length ? this.sAnnotation() : this.sArticle()?.content;
+    });
   }
 
   onSelect() {
@@ -50,7 +58,7 @@ export class AnnotationComponent implements OnInit {
     span.appendChild(fragment);
     range.insertNode(span);
 
-    const articleId= this.currentArticle.id;
+    const articleId = this.sArticle()!.id;
     const content = this.contentRef.nativeElement.innerHTML;
 
     const articles = this.articles();
@@ -60,10 +68,8 @@ export class AnnotationComponent implements OnInit {
       articles[index]['annotations'] = [];
       articles[index]['annotations'].push({ id, text: selectedText, color, note, articleId, content });
     }
-    // this.currentArticle = articles[index];
 
-
-    this.saveAnnotations(articles);
+    this.saveArticles(articles);
     selection.removeAllRanges();
   }
 
@@ -75,34 +81,19 @@ export class AnnotationComponent implements OnInit {
     return [];
   }
 
-  saveAnnotations(articles?: any): void {
-    localStorage.setItem('articles', JSON.stringify(articles));
+  saveArticles(articles?: any): void {
+    this.articleService.setArticles(articles);
     this.isSelectedText = false;
-    this.setCurrentArticle();
-  }
-
-  loadAnnotations(): void {
-    const currentAnnotation =  this.annotationService.getAnnotationById(this.currentArticle.id);
-    this.contentRef.nativeElement.innerHTML = currentAnnotation ? currentAnnotation.content : this.currentArticle.content;
-  }
-
-  setCurrentArticle() {
-    const articles = localStorage.getItem('articles');
-    if (articles) {
-      this.currentArticle = JSON.parse(articles).find((item: any) => item.id === this.currentArticle.id);
-    }
   }
 
   clearAnnotations(): void {
     if (confirm('Очистить аннотации?')) {
-      const articles = this.articles();
-      const index = (articles.map((item: Article) => item.id)).indexOf(this.currentArticle.id)
-      this.currentArticle = articles[index];
+      const articles = this.sArticles();
+      const index = (articles.map((item: Article) => item.id)).indexOf(this.sArticle()!.id)
       if (index !== -1) {
         articles[index]['annotations'] = [];
       }
-      this.saveAnnotations(articles);
-      this.loadAnnotations();
+      this.saveArticles(articles);
     }
   }
 }
