@@ -5,4 +5,4 @@
   <button [disabled]="!sAnnotation()" (click)="clearAnnotations()">Очистить аннотации</button>
 </div>
 
-<div #content class="content" id="container"></div>
+<div #content [innerHTML]="currentContentText()" class="content" id="container"></div>

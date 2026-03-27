@@ -2,6 +2,7 @@ import { Article } from '@/models';
 import { AnnotationService, ArticleService } from '@/services';
 import { CommonModule } from '@angular/common';
 import { Component, ElementRef, ViewChild, inject, effect, signal, computed } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-annotation',
@@ -16,18 +17,27 @@ export class AnnotationComponent {
 
   annotationService = inject(AnnotationService) ;
   articleService    = inject(ArticleService);
+  domSanitizer      = inject(DomSanitizer)
 
-  sArticle = this.articleService.selectedArticle;
-  _isSelectedText = signal<boolean>(false);
-  isSelectedText = computed(() => this._isSelectedText());
+  public readonly sArticle = this.articleService.selectedArticle;
 
-  sAnnotation = this.annotationService.getAnnotationByArticleId;
-  sArticles = this.articleService.articles;
+  private readonly _isSelectedText = signal<boolean>(false);
+  public readonly isSelectedText = computed(() => this._isSelectedText());
+
+  public readonly sAnnotation = this.annotationService.getAnnotationByArticleId;
+  public readonly sArticles = this.articleService.articles;
+
+  private readonly _currentContentText = signal<string | SafeHtml>('');
+  public readonly currentContentText = computed(() => this._currentContentText());
 
   constructor() {
     effect(() => {
-      this.contentRef.nativeElement.innerHTML =  this.sAnnotation()?.length ? this.sAnnotation() : this.sArticle()?.content;
-    });
+      const innerHTML =  this.sAnnotation()?.length ? this.sAnnotation() : this.sArticle()?.content;
+      // если html приходит извне - санитизируем
+      const safeHtml = this.domSanitizer.bypassSecurityTrustHtml(innerHTML as string);
+      this._currentContentText.set(safeHtml);
+
+    }, {allowSignalWrites: true});
     document.addEventListener('selectionchange', () => {
       this._isSelectedText.set(this.checkSelectedText());
      });
@@ -67,6 +77,8 @@ export class AnnotationComponent {
 
     const articleId = this.sArticle()!.id;
     const content = this.contentRef.nativeElement.innerHTML;
+
+    this._currentContentText.set(content as string);
 
     const articles = this.articles();
     const index = (articles.map((item: Article) => item.id)).indexOf(articleId);
