@@ -1,19 +1,27 @@
 import { BehaviorSubject } from "rxjs";
 import { Article } from "../models/article.model";
 import { StorageService } from "./storage.service";
-import { Injectable } from "@angular/core";
+import { computed, inject, Injectable, signal } from "@angular/core";
 import { NotificationService } from "./notification.service";
+import { AnnotationService } from './annotation.service';
 
 @Injectable({ providedIn: 'root' })
 export class ArticleService {
   private articles$ = new BehaviorSubject<Article[]>([]);
 
-  constructor(private storage: StorageService, private notificationService: NotificationService) {
-    this.articles$.next(this.storage.getArticles());
-  }
+  private annotationService   = inject(AnnotationService);
+  private storageService      = inject(StorageService);
+  private notificationService = inject(NotificationService);
 
-  getAll() {
-    return this.articles$.asObservable();
+  private readonly _articles = signal<Article[]>([]);
+  public readonly articles = computed(() => this._articles() || null );
+
+  private readonly _selectedId = signal<string | null>(null);
+  public readonly selectedArticle = computed(() => this._articles().find(a => a.id === this._selectedId()) || null );
+
+  constructor() {
+    this.articles$.next(this.storageService.getArticles());
+    this.loadFromStorage();
   }
 
   getById(id: string) {
@@ -30,9 +38,6 @@ export class ArticleService {
     const updated = this.articles$.value.map(a =>
       a.id === article.id ? article : a
     );
-
-    console.log('updated ', updated);
-
     this.update(updated);
     this.notificationService.updateText('Успешно отредактировано!');
   }
@@ -45,6 +50,28 @@ export class ArticleService {
 
   private update(data: Article[]) {
     this.articles$.next(data);
-    this.storage.saveArticles(data);
+    this.storageService.saveArticles(data);
+    this._articles.set(data);
+  }
+
+  selectArticle(id: string) {
+    this._selectedId.set(id);
+    if (this.selectedArticle()) {
+      this.annotationService.getAnnotationById(id);
+    }
+  }
+
+  private loadFromStorage() {
+    this._articles.set(this.storageService.getArticles());
+  }
+
+  setArticles(articles: Article[]) {
+    this.storageService.saveArticles(articles);
+    this._articles.set(articles);
+    if (this.selectedArticle()) {
+      this.selectedArticle()?.annotations.length
+      ? this.annotationService.setAnnotationByArticleId(this.selectedArticle()?.annotations[0].content as string)
+      : this.annotationService.setAnnotationByArticleId('');
+    }
   }
 }
