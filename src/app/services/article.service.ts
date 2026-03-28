@@ -1,41 +1,40 @@
-import { BehaviorSubject } from "rxjs";
-import { Article } from "../models/article.model";
-import { StorageService } from "./storage.service";
+import { Article } from "@/models";
 import { computed, inject, Injectable, signal } from "@angular/core";
+import { AnnotationService } from "./annotation.service";
+import { StorageService } from "./storage.service";
 import { NotificationService } from "./notification.service";
-import { AnnotationService } from './annotation.service';
 
 @Injectable({ providedIn: 'root' })
 export class ArticleService {
-  private articles$ = new BehaviorSubject<Article[]>([]);
 
   private annotationService   = inject(AnnotationService);
   private storageService      = inject(StorageService);
   private notificationService = inject(NotificationService);
 
   private readonly _articles = signal<Article[]>([]);
-  public readonly articles = computed(() => this._articles() || null );
+  readonly articles = computed(() => this._articles());
 
   private readonly _selectedId = signal<string | null>(null);
-  public readonly selectedArticle = computed(() => this._articles().find(a => a.id === this._selectedId()) || null );
+  readonly selectedArticle = computed(() =>
+    this._articles().find(a => a.id === this._selectedId()) ?? null
+  );
 
   constructor() {
-    this.articles$.next(this.storageService.getArticles());
-    this.loadFromStorage();
+    this._articles.set(this.storageService.getArticles());
   }
 
   getById(id: string) {
-    return this.articles$.value.find(a => a.id === id);
+    return this._articles().find(a => a.id === id) ?? null;
   }
 
   create(article: Article) {
-    const updated = [...this.articles$.value, article];
-    this.notificationService.updateText('Успешно создано!');
+    const updated = [...this._articles(), article];
     this.update(updated);
+    this.notificationService.updateText('Успешно создано!');
   }
 
   updateArticle(article: Article) {
-    const updated = this.articles$.value.map(a =>
+    const updated = this._articles().map(a =>
       a.id === article.id ? article : a
     );
     this.update(updated);
@@ -43,35 +42,35 @@ export class ArticleService {
   }
 
   delete(id: string) {
-    const updated = this.articles$.value.filter(a => a.id !== id);
-    this.notificationService.updateText('Успешно удалено!');
+    const updated = this._articles().filter(a => a.id !== id);
     this.update(updated);
+    this.notificationService.updateText('Успешно удалено!');
   }
 
   private update(data: Article[]) {
-    this.articles$.next(data);
-    this.storageService.saveArticles(data);
     this._articles.set(data);
+    this.storageService.saveArticles(data);
   }
 
   selectArticle(id: string) {
     this._selectedId.set(id);
-    if (this.selectedArticle()) {
-      this.annotationService.getAnnotationById(id);
-    }
-  }
 
-  private loadFromStorage() {
-    this._articles.set(this.storageService.getArticles());
+    const article = this.selectedArticle();
+    if (!article) return;
+
+    this.annotationService.getAnnotationById(id);
+
+    const firstAnnotation = article.annotations?.[0]?.content ?? '';
+    this.annotationService.setAnnotationByArticleId(firstAnnotation);
   }
 
   setArticles(articles: Article[]) {
-    this.storageService.saveArticles(articles);
-    this._articles.set(articles);
+    this.update(articles);
+
     if (this.selectedArticle()) {
-      this.selectedArticle()?.annotations.length
-      ? this.annotationService.setAnnotationByArticleId(this.selectedArticle()?.annotations[0].content as string)
-      : this.annotationService.setAnnotationByArticleId('');
+      const firstAnnotation =
+        this.selectedArticle()?.annotations?.[0]?.content ?? '';
+      this.annotationService.setAnnotationByArticleId(firstAnnotation);
     }
   }
 }
