@@ -1,19 +1,39 @@
-<div class="container">
-  <app-notification [notificationText]="notificationText" [type]="NOTIFICATION_TYPE.ERROR"></app-notification>
-  <div class="toolbar">
-    <button class="secondary" routerLink="/">В список статей</button>
-    <button class="primary" (click)="save()">Сохранить</button>
-    <button class="primary" [routerLink]="['/view', article.id ]">Отмена</button>
-  </div>
+<div class="container" [formGroup]="form">
+  <app-notification [text]="notificationText()" [type]="NOTIFICATION_TYPE.ERROR"></app-notification>
 
-  <input [(ngModel)]="article.title" placeholder="Название статьи" />
+  <form [formGroup]="form" (ngSubmit)="save()">
+    <div class="toolbar">
+      <button class="secondary" routerLink="/">В список статей</button>
+      <button class="primary" type="submit" [disabled]="form.invalid">Сохранить</button>
+      <button class="primary" [routerLink]="['/view', form.get('id')?.value ]">Отмена</button>
+    </div>
+    <div><span>После сохранения вы сможете выделять текст и добавлять аннотации</span></div>
 
-  <textarea
-    [(ngModel)]="article.content"
-    rows="10"
-    placeholder="Введите текст статьи...">
-  </textarea>
+    <input
+      type="text"
+      formControlName="title"
+      placeholder="Заголовок"
+    />
 
-  <app-notification [notificationText]="'После сохранения вы сможете выделять текст и добавлять аннотации'" [type]="NOTIFICATION_TYPE.WARNING"></app-notification>
+    <div class="error" *ngIf="showError('title')">
+      <span *ngIf="form.controls.title.errors?.['required']">
+        Заголовок обязателен
+      </span>
 
+      <span *ngIf="form.controls.title.errors?.['minlength']">
+        Минимум 3 символа
+      </span>
+    </div>
+
+    <textarea
+      formControlName="content"
+      placeholder="текст..."
+    ></textarea>
+    <div class="error" *ngIf="showError('content')">
+      <span *ngIf="form.controls.content.errors?.['required']">
+        Текст обязателен
+      </span>
+    </div>
+
+  </form>
 </div>
