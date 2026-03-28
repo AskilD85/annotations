@@ -1,83 +1,117 @@
-import { NotificationComponent } from "@/components/notification";
-import { Article } from "@/models";
-import { AnnotationService, ArticleService } from "@/services";
-import { NOTIFICATION_TYPE } from "@/shared";
-import { Component, OnInit } from "@angular/core";
-import { FormsModule } from "@angular/forms";
-import { ActivatedRoute, Router, RouterLink } from "@angular/router";
+import { NotificationComponent } from '@/components/notification';
+import { AnnotationService, ArticleService } from '@/services';
+import { NOTIFICATION_TYPE } from '@/shared';
+import { CommonModule } from '@angular/common';
+import {
+  Component,
+  OnInit,
+  computed,
+  inject,
+  signal
+} from '@angular/core';
+import {
+  FormBuilder,
+  ReactiveFormsModule,
+  Validators
+} from '@angular/forms';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+
+
 
 @Component({
   selector: 'app-article-editor',
   standalone: true,
   imports: [
-    FormsModule,
+    ReactiveFormsModule,
     RouterLink,
-    NotificationComponent
+    NotificationComponent,
+    CommonModule
   ],
   templateUrl: './article-editor.component.html',
   styleUrls: ['./article-editor.component.scss']
 })
 export class ArticleEditorComponent implements OnInit {
 
-  NOTIFICATION_TYPE = NOTIFICATION_TYPE;
+  private fb = inject(FormBuilder);
+  private articleService = inject(ArticleService);
+  private annotationService = inject(AnnotationService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
 
-  article: Article = this.createEmptyArticle();
-  notificationText = '';
+  // signals
+  private articleId = signal<string | null>(null);
+  private isEditMode = computed(() => !!this.articleId() && this.articleId() !== 'new');
 
-  private articleId: string | null = null;
-  private isEditMode = false;
+  NOTIFICATION_TYPE = NOTIFICATION_TYPE
 
-  constructor(
-    private articleService: ArticleService,
-    private annotationService: AnnotationService,
-    private route: ActivatedRoute,
-    private router: Router,
-  ) {}
+  readonly notificationText = signal('');
+
+  // форма
+  form = this.fb.nonNullable.group({
+    id: [crypto.randomUUID() as string],
+    title: ['', [Validators.required, Validators.minLength(3)]],
+    content: ['', [Validators.required]],
+  });
 
   ngOnInit() {
-    this.articleId = this.route.snapshot.paramMap.get('id');
+    const id = this.route.snapshot.paramMap.get('id');
+    this.articleId.set(id);
 
-    if (!this.articleId || this.articleId === 'new') return;
+    if (!this.isEditMode()) return;
 
-    const existing = this.articleService.getById(this.articleId);
+    const article = this.articleService.getById(id!);
 
-    if (!existing) {
-      this.notificationText = 'Статья не найдена, будет создана новая!';
+    if (!article) {
+      this.notificationText.set('Статья не найдена. Будет создана новая.');
       return;
     }
-    this.isEditMode = true;
 
-    this.article = { ...existing };
+    // заполняем форму
+    this.form.patchValue({
+      id: article.id,
+      title: article.title,
+      content: article.content
+    });
 
-    const hasAnnotation = !!this.annotationService.getAnnotationById(this.articleId);
+    const hasAnnotation = !!this.annotationService.getAnnotationById(id!);
 
     if (hasAnnotation) {
-      this.notificationText =
-        'Статья содержит аннотации! После сохранения они будут удалены.';
+      this.notificationText.set(
+        'Статья содержит аннотации! После сохранения они будут удалены.'
+      );
     }
   }
 
   save() {
-    const articleToSave: Article = {
-      ...this.article,
-      annotations: []
-    };
-
-    if (this.isEditMode) {
-      this.articleService.updateArticle(articleToSave);
-    } else {
-      this.articleService.create(articleToSave);
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
+      this.notificationText.set('Форма содержит ошибки. Пожалуйста, исправьте их перед сохранением.');
+      return;
     }
 
-    this.router.navigate(['/view', articleToSave.id]);
+    const formValue = this.form.getRawValue();
+
+    const article = {
+      ...formValue,
+      annotations: [] // всегда сбрасываем
+    };
+
+    if (this.isEditMode()) {
+      this.articleService.updateArticle(article);
+    } else {
+      this.articleService.create(article);
+    }
+
+    this.router.navigate(['/view', article.id]);
   }
 
-  private createEmptyArticle(): Article {
-    return {
-      id: crypto.randomUUID(),
-      title: '',
-      content: '',
-      annotations: []
-    };
+  isInvalid(controlName: string): boolean {
+    const control = this.form.get(controlName);
+    return !!control && control.invalid && (control.touched || control.dirty);
   }
+
+  showError(controlName: string): boolean {
+    return this.isInvalid(controlName);
+  }
+
 }
