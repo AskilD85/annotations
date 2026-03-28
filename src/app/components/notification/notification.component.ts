@@ -11,7 +11,7 @@ import { ChangeDetectionStrategy, Component, Input, OnInit } from '@angular/core
   imports: [CommonModule],
 })
 export class NotificationComponent implements OnInit {
-  @Input() notificationText: string| null = '';
+  @Input() text: string| null = '';
   @Input() type = '';
 
   NOTIFICATION_TYPE = NOTIFICATION_TYPE
