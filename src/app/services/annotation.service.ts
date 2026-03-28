@@ -8,14 +8,29 @@ export class AnnotationService {
   public readonly _getAnnotationByArticleId = signal<string | null>(null)
   public readonly getAnnotationByArticleId = computed(() => this._getAnnotationByArticleId() || null)
 
-  getAnnotationById(articleId: string):  Annotation {
-    const articles = localStorage.getItem('articles');
-    let article!: Article;
-    if (articles) {
-       article = JSON.parse(articles).find((item: any) => item.id === articleId);
+  getAnnotationById(articleId: string): Annotation | null {
+    const articlesRaw = localStorage.getItem('articles');
+    if (!articlesRaw) return null;
+
+    let articles: Article[];
+
+    try {
+      articles = JSON.parse(articlesRaw);
+    } catch {
+      console.error('Invalid JSON in localStorage');
+      return null;
     }
-    this._getAnnotationByArticleId.set(article.annotations.length ? article.annotations[0].content : '')
-    return article.annotations[0];
+
+    const article = articles.find((item: Article) => item.id === articleId);
+    if (!article || !article.annotations?.length) {
+      return null;
+    }
+
+    const annotation = article.annotations[0];
+
+    this._getAnnotationByArticleId.set(annotation.content);
+
+    return annotation;
   }
 
   setAnnotationByArticleId(text: string) {
