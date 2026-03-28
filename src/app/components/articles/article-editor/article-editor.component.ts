@@ -57,7 +57,10 @@ export class ArticleEditorComponent implements OnInit {
 }
 
   save() {
-    this.article.annotations.length = 0;
+    if (this.article.annotations.length > 0) {
+      this.article.annotations.length = 0;
+    }
+
     this.existArticle ? this.articleService.updateArticle(this.article) : this.articleService.create(this.article);
     this.router.navigate(['/view', this.article.id])
   }
