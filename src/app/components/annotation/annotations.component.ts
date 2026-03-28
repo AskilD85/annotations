@@ -1,8 +1,16 @@
-import { Article } from '@/models';
-import { AnnotationService, ArticleService } from '@/services';
+import {
+  Component,
+  ElementRef,
+  ViewChild,
+  inject,
+  signal,
+  computed,
+  effect,
+  OnDestroy
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, ViewChild, inject, effect, signal, computed } from '@angular/core';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
+import { AnnotationService, ArticleService } from '@/services';
 
 @Component({
   selector: 'app-annotation',
@@ -11,44 +19,66 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
   imports: [CommonModule],
   standalone: true,
 })
-export class AnnotationComponent {
+export class AnnotationComponent implements OnDestroy {
 
-  @ViewChild('content', { static: true }) contentRef!: ElementRef;
+  @ViewChild('container', { static: true })
+  contentRef!: ElementRef<HTMLElement>;
 
-  annotationService = inject(AnnotationService) ;
-  articleService    = inject(ArticleService);
-  domSanitizer      = inject(DomSanitizer)
+  private annotationService = inject(AnnotationService);
+  private articleService    = inject(ArticleService);
+  private sanitizer         = inject(DomSanitizer);
 
-  public readonly sArticle = this.articleService.selectedArticle;
+  readonly article = this.articleService.selectedArticle;
+  readonly annotations = this.annotationService.getAnnotationByArticleId;
 
-  private readonly _isSelectedText = signal<boolean>(false);
-  public readonly isSelectedText = computed(() => this._isSelectedText());
+  private readonly _isSelectedText = signal(false);
+  readonly isSelectedText = computed(() => this._isSelectedText());
 
-  public readonly sAnnotation = this.annotationService.getAnnotationByArticleId;
-  public readonly sArticles = this.articleService.articles;
+  private readonly _content = signal<SafeHtml>('');
+  readonly content = computed(() => this._content());
 
-  private readonly _currentContentText = signal<string | SafeHtml>('');
-  public readonly currentContentText = computed(() => this._currentContentText());
+  private selectionHandler = () => {
+    this._isSelectedText.set(this.checkSelectedText());
+  };
 
   constructor() {
     effect(() => {
-      const innerHTML =  this.sAnnotation()?.length ? this.sAnnotation() : this.sArticle()?.content;
-      // если html приходит извне - санитизируем
-      const safeHtml = this.domSanitizer.bypassSecurityTrustHtml(innerHTML as string);
-      this._currentContentText.set(safeHtml);
+      const annotations = this.annotations();
+      const article = this.article();
 
-    }, {allowSignalWrites: true});
-    document.addEventListener('selectionchange', () => {
-      this._isSelectedText.set(this.checkSelectedText());
-     });
+      const html = annotations?.length
+        ? annotations
+        : article?.content ?? '';
+
+      if (typeof html !== 'string') {
+        this._content.set('');
+        return;
+      }
+
+      this._content.set(
+        this.sanitizer.bypassSecurityTrustHtml(html)
+      );
+    }, { allowSignalWrites: true });
+
+    document.addEventListener('selectionchange', this.selectionHandler);
   }
 
-  checkSelectedText(): boolean {
+  ngOnDestroy() {
+    document.removeEventListener('selectionchange', this.selectionHandler);
+  }
+
+  private checkSelectedText(): boolean {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return false;
+
     const range = selection.getRangeAt(0);
-    const container = document.getElementById('container');
-    return Boolean(container?.contains(range.startContainer) && container?.contains(range.endContainer));
+    const container = this.contentRef?.nativeElement;
+
+    return !!(
+      container &&
+      container.contains(range.startContainer) &&
+      container.contains(range.endContainer)
+    );
   }
 
   applyAnnotation(color: string): void {
@@ -56,63 +86,65 @@ export class AnnotationComponent {
     if (!selection || selection.rangeCount === 0) return;
 
     const range = selection.getRangeAt(0);
-    const selectedText = range.toString();
-    if (!selectedText.trim()) return;
+    const text = range.toString().trim();
+    if (!text) return;
 
-    const note = prompt('Введите аннотацию:') || '';
+    const article = this.article();
+    if (!article) return;
+
+    const note = prompt('Введите аннотацию:') ?? '';
 
     const span = document.createElement('span');
-    const id = Date.now().toString();
+    const id = crypto.randomUUID();
 
     span.className = 'annotated';
     span.style.backgroundColor = color;
-    span.style.textDecoration = `underline`;
-    span.setAttribute('data-id', id);
-    span.setAttribute('data-note', note);
-    span.setAttribute('title', note);
+    span.style.textDecoration = 'underline';
+    span.dataset['id'] = id;
+    span.dataset['note'] = note;
+    span.title = note;
 
     const fragment = range.extractContents();
     span.appendChild(fragment);
     range.insertNode(span);
 
-    const articleId = this.sArticle()!.id;
     const content = this.contentRef.nativeElement.innerHTML;
 
-    this._currentContentText.set(content as string);
+    this._content.set(content);
 
-    const articles = this.articles();
-    const index = (articles.map((item: Article) => item.id)).indexOf(articleId);
+    const updatedArticles = this.articleService.articles().map(a => {
+      if (a.id !== article.id) return a;
 
-    if (index !== -1) {
-      articles[index]['annotations'] = [];
-      articles[index]['annotations'].push({ id, text: selectedText, color, note, articleId, content });
-    }
+      return {
+        ...a,
+        annotations: [{
+          id,
+          text,
+          color,
+          note,
+          articleId: article.id,
+          content
+        }]
+      };
+    });
 
-    this.saveArticles(articles);
+    this.articleService.setArticles(updatedArticles);
     selection.removeAllRanges();
-  }
-
-  articles(): Article[] {
-    let articles = localStorage.getItem('articles');
-    if (articles) {
-      return JSON.parse(articles);
-    }
-    return [];
-  }
-
-  saveArticles(articles?: any): void {
-    this.articleService.setArticles(articles);
     this._isSelectedText.set(false);
   }
 
   clearAnnotations(): void {
-    if (confirm('Очистить аннотации?')) {
-      const articles = this.sArticles();
-      const index = (articles.map((item: Article) => item.id)).indexOf(this.sArticle()!.id)
-      if (index !== -1) {
-        articles[index]['annotations'] = [];
-      }
-      this.saveArticles(articles);
-    }
+    if (!confirm('Очистить аннотации?')) return;
+
+    const article = this.article();
+    if (!article) return;
+
+    const updated = this.articleService.articles().map(a =>
+      a.id === article.id
+        ? { ...a, annotations: [] }
+        : a
+    );
+
+    this.articleService.setArticles(updated);
   }
 }
