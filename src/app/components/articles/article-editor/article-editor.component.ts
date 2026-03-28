@@ -9,28 +9,23 @@ import { ActivatedRoute, Router, RouterLink } from "@angular/router";
 @Component({
   selector: 'app-article-editor',
   standalone: true,
-  imports:[
+  imports: [
     FormsModule,
     RouterLink,
     NotificationComponent
   ],
-  templateUrl:'./article-editor.component.html',
-  styleUrls:['./article-editor.component.scss']
+  templateUrl: './article-editor.component.html',
+  styleUrls: ['./article-editor.component.scss']
 })
 export class ArticleEditorComponent implements OnInit {
-  article: Article = {
-    id: crypto.randomUUID(),
-    title: '',
-    content: '',
-    annotations: []
-  };
 
-  NOTIFICATION_TYPE = NOTIFICATION_TYPE
+  NOTIFICATION_TYPE = NOTIFICATION_TYPE;
 
+  article: Article = this.createEmptyArticle();
   notificationText = '';
 
-  existArticle: Article | undefined;
-  existAnnotation = false;
+  private articleId: string | null = null;
+  private isEditMode = false;
 
   constructor(
     private articleService: ArticleService,
@@ -40,26 +35,49 @@ export class ArticleEditorComponent implements OnInit {
   ) {}
 
   ngOnInit() {
-  const id = this.route.snapshot.paramMap.get('id');
+    this.articleId = this.route.snapshot.paramMap.get('id');
 
-  if (id && id !== 'new') {
-    this.existArticle = this.articleService.getById(id);
-    if (this.existArticle) {
-      this.article = { ...this.existArticle };
-      if (this.annotationService.getAnnotationById(String(id))) {
-        this.existAnnotation = true;
-        this.notificationText = 'Статья содержит аннотации! После сохранения - все существующие аннотации удалятся!'
-      }
-    } else {
-      this.notificationText = 'ID документа не найден, будет создана новая статья с новым ID!'
+    if (!this.articleId || this.articleId === 'new') return;
+
+    const existing = this.articleService.getById(this.articleId);
+
+    if (!existing) {
+      this.notificationText = 'Статья не найдена, будет создана новая!';
+      return;
+    }
+    this.isEditMode = true;
+
+    this.article = { ...existing };
+
+    const hasAnnotation = !!this.annotationService.getAnnotationById(this.articleId);
+
+    if (hasAnnotation) {
+      this.notificationText =
+        'Статья содержит аннотации! После сохранения они будут удалены.';
     }
   }
 
-
-}
-
   save() {
-    this.existArticle ? this.articleService.updateArticle(this.article) : this.articleService.create(this.article);
-    this.router.navigate(['/view', this.article.id])
+    const articleToSave: Article = {
+      ...this.article,
+      annotations: []
+    };
+
+    if (this.isEditMode) {
+      this.articleService.updateArticle(articleToSave);
+    } else {
+      this.articleService.create(articleToSave);
+    }
+
+    this.router.navigate(['/view', articleToSave.id]);
+  }
+
+  private createEmptyArticle(): Article {
+    return {
+      id: crypto.randomUUID(),
+      title: '',
+      content: '',
+      annotations: []
+    };
   }
 }

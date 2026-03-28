@@ -1,17 +1,39 @@
-import { Injectable } from "@angular/core";
+import { computed, Injectable, signal } from "@angular/core";
 import { Annotation } from "../models/annotation.model";
 import { Article } from "../models/article.model";
 
 @Injectable({ providedIn: 'root' })
 export class AnnotationService {
 
-  getAnnotationById(articleId: string): Annotation {
-    const articles = localStorage.getItem('articles');
-    let article!: Article;
-    if (articles) {
-       article = JSON.parse(articles).find((item: any) => item.id === articleId);
+  public readonly _getAnnotationByArticleId = signal<string | null>(null)
+  public readonly getAnnotationByArticleId = computed(() => this._getAnnotationByArticleId() || null)
+
+  getAnnotationById(articleId: string): Annotation | null {
+    const articlesRaw = localStorage.getItem('articles');
+    if (!articlesRaw) return null;
+
+    let articles: Article[];
+
+    try {
+      articles = JSON.parse(articlesRaw);
+    } catch {
+      console.error('Invalid JSON in localStorage');
+      return null;
     }
-    return article.annotations[0];
+
+    const article = articles.find((item: Article) => item.id === articleId);
+    if (!article || !article.annotations?.length) {
+      return null;
+    }
+
+    const annotation = article.annotations[0];
+
+    this._getAnnotationByArticleId.set(annotation.content);
+
+    return annotation;
   }
 
+  setAnnotationByArticleId(text: string) {
+    this._getAnnotationByArticleId.set(text)
+  }
 }

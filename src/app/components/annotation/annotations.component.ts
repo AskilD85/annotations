@@ -1,29 +1,54 @@
 import { Article } from '@/models';
-import { AnnotationService } from '@/services';
-import { Component, ElementRef, ViewChild, Input, OnInit, inject } from '@angular/core';
+import { AnnotationService, ArticleService } from '@/services';
+import { CommonModule } from '@angular/common';
+import { Component, ElementRef, ViewChild, inject, effect, signal, computed } from '@angular/core';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-annotation',
   templateUrl: './annotations.component.html',
   styleUrls: ['./annotations.component.scss'],
+  imports: [CommonModule],
   standalone: true,
 })
-export class AnnotationComponent implements OnInit {
+export class AnnotationComponent {
 
   @ViewChild('content', { static: true }) contentRef!: ElementRef;
-  @Input() currentArticle!: Article;
 
   annotationService = inject(AnnotationService) ;
-  isSelectedText = false;
+  articleService    = inject(ArticleService);
+  domSanitizer      = inject(DomSanitizer)
 
-  ngOnInit() {
-    this.loadAnnotations();
-    this.setCurrentArticle();
+  public readonly sArticle = this.articleService.selectedArticle;
+
+  private readonly _isSelectedText = signal<boolean>(false);
+  public readonly isSelectedText = computed(() => this._isSelectedText());
+
+  public readonly sAnnotation = this.annotationService.getAnnotationByArticleId;
+  public readonly sArticles = this.articleService.articles;
+
+  private readonly _currentContentText = signal<string | SafeHtml>('');
+  public readonly currentContentText = computed(() => this._currentContentText());
+
+  constructor() {
+    effect(() => {
+      const innerHTML =  this.sAnnotation()?.length ? this.sAnnotation() : this.sArticle()?.content;
+      // если html приходит извне - санитизируем
+      const safeHtml = this.domSanitizer.bypassSecurityTrustHtml(innerHTML as string);
+      this._currentContentText.set(safeHtml);
+
+    }, {allowSignalWrites: true});
+    document.addEventListener('selectionchange', () => {
+      this._isSelectedText.set(this.checkSelectedText());
+     });
   }
 
-  onSelect() {
-    const text = window.getSelection()?.toString();
-    this.isSelectedText = !!text;
+  checkSelectedText(): boolean {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return false;
+    const range = selection.getRangeAt(0);
+    const container = document.getElementById('container');
+    return Boolean(container?.contains(range.startContainer) && container?.contains(range.endContainer));
   }
 
   applyAnnotation(color: string): void {
@@ -50,8 +75,10 @@ export class AnnotationComponent implements OnInit {
     span.appendChild(fragment);
     range.insertNode(span);
 
-    const articleId= this.currentArticle.id;
+    const articleId = this.sArticle()!.id;
     const content = this.contentRef.nativeElement.innerHTML;
+
+    this._currentContentText.set(content as string);
 
     const articles = this.articles();
     const index = (articles.map((item: Article) => item.id)).indexOf(articleId);
@@ -60,10 +87,8 @@ export class AnnotationComponent implements OnInit {
       articles[index]['annotations'] = [];
       articles[index]['annotations'].push({ id, text: selectedText, color, note, articleId, content });
     }
-    // this.currentArticle = articles[index];
 
-
-    this.saveAnnotations(articles);
+    this.saveArticles(articles);
     selection.removeAllRanges();
   }
 
@@ -75,34 +100,19 @@ export class AnnotationComponent implements OnInit {
     return [];
   }
 
-  saveAnnotations(articles?: any): void {
-    localStorage.setItem('articles', JSON.stringify(articles));
-    this.isSelectedText = false;
-    this.setCurrentArticle();
-  }
-
-  loadAnnotations(): void {
-    const currentAnnotation =  this.annotationService.getAnnotationById(this.currentArticle.id);
-    this.contentRef.nativeElement.innerHTML = currentAnnotation ? currentAnnotation.content : this.currentArticle.content;
-  }
-
-  setCurrentArticle() {
-    const articles = localStorage.getItem('articles');
-    if (articles) {
-      this.currentArticle = JSON.parse(articles).find((item: any) => item.id === this.currentArticle.id);
-    }
+  saveArticles(articles?: any): void {
+    this.articleService.setArticles(articles);
+    this._isSelectedText.set(false);
   }
 
   clearAnnotations(): void {
     if (confirm('Очистить аннотации?')) {
-      const articles = this.articles();
-      const index = (articles.map((item: Article) => item.id)).indexOf(this.currentArticle.id)
-      this.currentArticle = articles[index];
+      const articles = this.sArticles();
+      const index = (articles.map((item: Article) => item.id)).indexOf(this.sArticle()!.id)
       if (index !== -1) {
         articles[index]['annotations'] = [];
       }
-      this.saveAnnotations(articles);
-      this.loadAnnotations();
+      this.saveArticles(articles);
     }
   }
 }

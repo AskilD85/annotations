@@ -2,21 +2,15 @@
   <h2>Статьи</h2>
 
   <button (click)="createArticle()">Создать статью</button>
-
-
-
-  <div *ngIf="(articles$ | async) as articles">
-
-    <div *ngIf="articles.length === 0" class="empty">
+  <div *ngIf="sArticles()">
+    <div *ngIf="sArticles().length === 0" class="empty">
       Нет статей
     </div>
 
-    <div *ngFor="let article of articles" class="card">
+    <div *ngFor="let article of sArticles()" class="card">
       <h3>{{ article.title || 'Без названия' }}</h3>
 
-      <p class="preview">
-        {{ article.content | slice:0:100 }}...
-      </p>
+      <p class="preview">{{ article.content | slice:0:100 }}...</p>
 
       <div class="actions">
         <button (click)="viewArticle(article.id)">Просмотр</button>

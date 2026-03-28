@@ -1,7 +1,8 @@
 <div class="container">
   <button routerLink="/">В список</button>
-  <button [routerLink]="['/edit', article.id]">Редактировать</button>
-  <h2>{{ article.title || 'Без названия' }}</h2>
+  <button [routerLink]="['/edit', sArticle()?.id]">Редактировать</button>
+  <button (click)="deleteArticle()">Удалить</button>
+  <h2>{{ sArticle()?.title || 'Без названия' }}</h2>
   <app-notification [notificationText]="notificationText" [type]="'warning'"></app-notification>
-  <app-annotation [currentArticle]="article"></app-annotation>
+  <app-annotation></app-annotation>
 </div>
